@@ -87,3 +87,4 @@ if __name__ == '__main__':
     im = imageio.imread('./girl.png') / 255.
     abstracted = abstraction(im)
     imageio.imsave('abstracted.png', (np.clip(abstracted, 0, 1) * 255).astype(np.uint8))
+    

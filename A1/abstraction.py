@@ -12,7 +12,6 @@ def edge_detection(im):
     diff = S_e - (tau * S_f)
     edge = np.tanh(diff * phi_e) + 1
     edge = np.minimum(edge, 1)
-
     return edge
 
 def luminance_quantization(im):
@@ -66,15 +65,20 @@ def abstraction(im):
     filtered = skc.rgb2lab(im)
     for _ in range(n_e):
         filtered = bilateral_gaussian(filtered)
+    imageio.imwrite(f'bilateral1.png',(skc.lab2rgb(filtered)*255).astype(np.uint8))
     edges = edge_detection(filtered[:, :, 0])
+    imageio.imsave('edges.png', (edges * 255).astype(np.uint8))
 
     for _ in range(n_b - n_e):
         filtered = bilateral_gaussian(filtered)
+    imageio.imwrite(f'bilateral2.png',(skc.lab2rgb(filtered)*255).astype(np.uint8))
     luminance_quantized = luminance_quantization(filtered[:, :, 0])
+    imageio.imsave('luminance_quantized.png', (luminance_quantized * 255/100).astype(np.uint8))
 
     '''Get the final image by merging the channels properly'''
-    filtered[:, :, 0] = luminance_quantized * edges
+    filtered[:, :, 0] = np.multiply(edges, luminance_quantized)
     return skc.lab2rgb(filtered)
+
 
 def psnr(
     x: np.ndarray,
@@ -82,8 +86,7 @@ def psnr(
 ) -> float:
     mse = np.mean((x - y) ** 2)
     m = 1
-    psnr_value = 10 * np.log10(m ** 2 / mse)
-    return psnr_value
+    return 10 * np.log10(m ** 2 / mse)
 
 if __name__ == '__main__':
     # Algorithm
@@ -103,6 +106,7 @@ if __name__ == '__main__':
     im = imageio.imread('./girl.png') / 255.
     abstracted = abstraction(im)
     
-    print(psnr(im, abstracted))
+    im_ref = imageio.imread('./reference.png') / 255.
+    print(psnr(im_ref, abstracted))
     
     imageio.imsave('abstracted.png', (np.clip(abstracted, 0, 1) * 255).astype(np.uint8))

@@ -2,6 +2,15 @@ import numpy as np
 import utils
 
 
+def logsumexp(log_vals, axis=None, keepdims=False):
+    """Compute log-sum-exp in a numerically stable way."""
+    max_vals = np.max(log_vals, axis=axis, keepdims=True)
+    stable_vals = log_vals - max_vals
+    sum_exp = np.sum(np.exp(stable_vals), axis=axis, keepdims=True)
+    result = max_vals + np.log(sum_exp)
+    return result if keepdims else np.squeeze(result, axis=axis)
+
+
 def expectation_maximization(
     X: np.ndarray,
     K: int,
@@ -20,9 +29,30 @@ def expectation_maximization(
     for it in range(max_iter):
         print(it)
         # TODO: Implement (9) - (11)
-        alphas = alphas
-        mus = mus
-        sigmas = sigmas
+
+        # alphas = alphas
+        # mus = mus
+        # sigmas = sigmas
+
+        log_resps = np.zeros((N, K))
+        for k in range(K):
+            diff = X - mus[k]
+            log_prob = -0.5 * (np.sum(diff @ np.linalg.inv(sigmas[k]) * diff, axis=1) +
+                            np.linalg.slogdet(sigmas[k])[1] + m * np.log(2 * np.pi))
+            log_resps[:, k] = np.log(alphas[k]) + log_prob
+
+        log_resps -= logsumexp(log_resps, axis=1, keepdims=True)  # utils.logsumexp handles stability
+        gamma = np.exp(log_resps)
+
+        Nk = gamma.sum(axis=0)
+        alphas = Nk / N
+        mus = (gamma.T @ X) / Nk[:, None]
+        sigmas = np.zeros((K, m, m))
+        for k in range(K):
+            diff = X - mus[k]
+            sigmas[k] = (gamma[:, k, None] * diff).T @ diff / Nk[k]
+            sigmas[k] += epsilon * np.eye(m)
+
 
         if it % show_each == 0 and plot:
             utils.plot_gmm(X, alphas, mus, sigmas)
@@ -55,11 +85,23 @@ def denoise(
     E = np.eye(m) - np.full((m, m), 1 / m)
 
     # TODO: Precompute A, b (26)
+    A = np.zeros((K, m, m))
+    b = np.zeros((K, m))
+    for k in range(K):
+        Ek = E.T @ precs[k] @ E
+        A[k] = np.linalg.inv(lamda * np.eye(m) + Ek)
+        b[k] = precs[k] @ E @ mus[k]
 
     for it in range(max_iter):
         # TODO: Implement Line 3, Line 4 of Algorithm 1
-        x_tilde = x_est
-        x_est = alpha * x_est + (1 - alpha) * x_tilde
+        x_tilde = np.zeros_like(x_est)
+        for i, patch in enumerate(y):
+            proj_patch = E @ patch
+            kmax = np.argmax([np.log(alphas[k]) - 0.5 * (proj_patch - mus[k]).T @ precs[k] @ (proj_patch - mus[k])
+                            for k in range(K)])
+            x_tilde[i] = A[kmax] @ (lamda * patch + b[kmax])
+
+        x_est = alpha * x_est + (1 - alpha) * x_tilde  
 
         if not test:
             u = utils.patches_to_image(x_est, x.shape, w)
@@ -85,11 +127,11 @@ def train(use_toy_data: bool = True, K: int = 2, w: int = 5):
 if __name__ == "__main__":
     do_training = True
     # Use the toy data to debug your EM implementation
-    use_toy_data = True
+    use_toy_data = False
     # Parameters for the GMM: Components and window size, m = w ** 2
     # Use K = 2 for toy/debug model
     K = 2
-    w = 5
+    w = 5 
     if do_training:
         train(use_toy_data, K, w)
     else:

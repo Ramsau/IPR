@@ -9,16 +9,26 @@ def edge_detection(im):
     '''Implement DoG smooth edge detection (Eq. 6)'''
     S_e = skf.gaussian(im, sigma=sigma_e, mode='constant')
     S_f = skf.gaussian(im, sigma=np.sqrt(1.6) * sigma_e, mode='constant')
-    diff = S_e - (S_f * tau)
+    diff = S_e - (tau * S_f)
     edge = np.tanh(diff * phi_e) + 1
     edge = np.minimum(edge, 1)
-
     return edge
 
 def luminance_quantization(im):
     '''Implement luminance quantization (Eq. 8)'''
-    return im
+    lmax = 100.0
+    delta_l = lmax / n_bins
+    Q = np.linspace(0, lmax, n_bins + 1) 
 
+    def smooth_step(x):
+        i_hat = np.argmin(np.abs(x - Q))
+        Q_i_hat = Q[i_hat]
+        return Q_i_hat + (delta_l / 2) * np.tanh(phi_q * (x - Q_i_hat))
+
+    quantized_luminance = np.vectorize(smooth_step)(im)
+    quantized_luminance = np.clip(quantized_luminance, 0, 255)
+
+    return quantized_luminance
 
 def bilateral_gaussian(im):
     # Radius of the Gaussian filter
@@ -55,19 +65,28 @@ def abstraction(im):
     filtered = skc.rgb2lab(im)
     for _ in range(n_e):
         filtered = bilateral_gaussian(filtered)
+    imageio.imwrite(f'bilateral1.png',(skc.lab2rgb(filtered)*255).astype(np.uint8))
     edges = edge_detection(filtered[:, :, 0])
+    imageio.imsave('edges.png', (edges * 255).astype(np.uint8))
 
     for _ in range(n_b - n_e):
         filtered = bilateral_gaussian(filtered)
+    imageio.imwrite(f'bilateral2.png',(skc.lab2rgb(filtered)*255).astype(np.uint8))
     luminance_quantized = luminance_quantization(filtered[:, :, 0])
+    imageio.imsave('luminance_quantized.png', (luminance_quantized * 255/100).astype(np.uint8))
 
     '''Get the final image by merging the channels properly'''
-    combined = np.zeros_like(filtered)
-    combined[:,:,0] = filtered[:,:,0] * edges
-    combined[:,:,1] = filtered[:,:,1] * edges
-    combined[:,:,2] = filtered[:,:,2] * edges
-    return skc.lab2rgb(combined)
+    filtered[:, :, 0] = np.multiply(edges, luminance_quantized)
+    return skc.lab2rgb(filtered)
 
+
+def psnr(
+    x: np.ndarray,
+    y: np.ndarray,
+) -> float:
+    mse = np.mean((x - y) ** 2)
+    m = 1
+    return 10 * np.log10(m ** 2 / mse)
 
 if __name__ == '__main__':
     # Algorithm
@@ -86,5 +105,9 @@ if __name__ == '__main__':
 
     im = imageio.imread('./girl.png') / 255.
     abstracted = abstraction(im)
+    
+    im_ref = imageio.imread('./reference.png') / 255.
+    print(psnr(im_ref, abstracted))
+    
     imageio.imsave('abstracted.png', (np.clip(abstracted, 0, 1) * 255).astype(np.uint8))
     

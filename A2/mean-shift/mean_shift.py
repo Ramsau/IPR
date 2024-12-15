@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import imageio
 import torch as th
+import numpy as np
 
 # It is highly recommended to set up pytorch to take advantage of CUDA GPUs!
 device = th.device('cuda') if th.cuda.is_available() else th.device('cpu')
@@ -9,7 +10,7 @@ device = th.device('cuda') if th.cuda.is_available() else th.device('cpu')
 M = 128
 # The reference implementation works in chunks. Set this as high as possible
 # while fitting the intermediary calculations in memory.
-simul = M ** 2 // 1
+simul = M ** 2 #// 1
 
 im = th.from_numpy(imageio.imread(f'./{M}.png') / 255.).to(device)
 
@@ -30,20 +31,31 @@ for zeta in [1, 4]:
         to_do = th.arange(M ** 2, device=device)
         while len(to_do):
             chunk = shifted[to_do[:simul]]
-            # TODO: Implement (16)
-            new = chunk.clone()
-            shifted[to_do[:simul]] = new
-            # TODO: Termination criterion (17). cond should be True for samples
-            # that need updating. Note that chunk contains the 'old' values.
-            cond = th.ones(new.shape[0], device=new.device)
+            
+            # Mean Shift Update (Formula 15?)
+            diff = chunk[:, None, :] - shifted[None, :, :]
+            distances = th.norm(diff, dim=-1)**2 / (h**2)
+            I_xj = distances <= 1
 
-            to_do = to_do[th.cat((
-                cond, cond.new_ones(to_do.shape[0] - cond.shape[0])
-            ))]
+            weights = I_xj.float()
+            weighted_sum = (weights[..., None] * shifted[None, :, :]).sum(dim=1)
+            card_I_xj = weights.sum(dim=1, keepdim=True)
+            new = weighted_sum / (card_I_xj + 1e-8)
+            
+            # Apply updates
+            shifted[to_do[:simul]] = new
+            
+            # Termination Criterion (Formula 17)
+            cond = th.norm(new - chunk, dim=-1)**2 >= 1e-6
+            to_do = to_do[cond.nonzero(as_tuple=True)[0]]
+            # to_do = to_do[cond]
+            
+            # Visualization
             artist.set_data(shifted.view(M, M, 5).cpu()[:, :, :3])
             plt.pause(0.01)
+
         # Reference images were saved using this code.
-        # imageio.imsave(
-        #     f'./reference/{M}/zeta_{zeta:1.1f}_h_{h:.2f}.png',
-        #     shifted.reshape(M, M, 5)[..., :3].clone().cpu().numpy()
-        # )
+        imageio.imsave(
+            f'./implementation/{M}/zeta_{zeta:1.1f}_h_{h:.2f}.png',
+            (shifted.reshape(M, M, 5)[..., :3].clone().cpu().numpy()* 255).astype(np.uint8)
+        )

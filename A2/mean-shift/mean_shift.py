@@ -6,10 +6,10 @@ import torch as th
 device = th.device('cuda') if th.cuda.is_available() else th.device('cpu')
 
 # Choose the size of the image here. Prototyping is easier with 128.
-M = 256
+M = 128
 # The reference implementation works in chunks. Set this as high as possible
 # while fitting the intermediary calculations in memory.
-simul = M ** 2 // 10
+simul = 50 * 50
 
 im = th.from_numpy(imageio.imread(f'./{M}.png') / 255.).to(device)
 
@@ -36,30 +36,41 @@ for zeta in [1, 4]:
             # points. Note that for each point, you should compute the distance
             # to _all_ other points, not only the points in the current chunk.
             chunk = shifted[to_do[:simul]].clone()
+            chunk_before = chunk.clone()
+            # TODO: Mean shift iterations (15), writing back the result into shifted.
+            I = th.where( # N, simul
+                th.norm(
+                    (shifted[:, None] - chunk[None, :]) / h, # N, simul, m
+                    dim=(-1)
+                ) ** 2 <= 1,
+                True,
+                False
+            )
+            card = I.count_nonzero(dim=0)
+            for i in range(len(chunk)):
+                chunk[i] = shifted[I[:, i]].sum(0) / card[i]
+                pass
 
-            # Mean shift iterations (15)
-            distances = th.cdist(chunk[:, :3], features[:, :3]) ** 2 + \
-                       th.cdist(chunk[:, 3:], features[:, 3:]) ** 2
-            weights = (distances <= h**2).float()
-            numerator = th.sum(weights[:, :, None] * features[None, :, :], dim=1)
-            denominator = th.sum(weights, dim=1, keepdim=True)
-            shifted[to_do[:simul]] = numerator / denominator
-
-            # Termination criterion (17)
-            cond = th.norm(shifted[to_do[:simul]] - chunk, dim=1) >= 1e-6
+            shifted[to_do[:simul]] = chunk.clone()
+            # TODO: Termination criterion (17). cond should be True for samples
+            # that need updating. Note that chunk contains the 'old' values.
+            cond = th.where(
+                th.norm(chunk - chunk_before, dim=1) ** 2 < 1e-6,
+                False,
+                True
+            )
             # We only keep the points for which the stopping criterion is not met.
             # `cond` should be a boolean array of length `simul` that indicates
             # which points should be kept.
             to_do = to_do[th.cat((
-                cond, th.zeros(to_do.shape[0] - cond.shape[0], device=device).to(th.bool)
+                cond, cond.new_ones(to_do.shape[0] - cond.shape[0])
             ))]
             artist.set_data(shifted.view(M, M, 5).cpu()[:, :, :3])
+            plt.show()
             plt.pause(0.01)
+            print(f"Zeta={zeta}, h={h}: {len(to_do)} Pixels left.")
         # Reference images were saved using this code.
-        print(f"Saving zeta={zeta}, h={h}")
         imageio.imsave(
             f'./implementation/{M}/zeta_{zeta:1.1f}_h_{h:.2f}.png',
             (shifted.reshape(M, M, 5)[..., :3].clone().cpu().numpy()*255).astype("uint8")
         )
-
-

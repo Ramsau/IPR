@@ -33,13 +33,15 @@ def expectation_maximization(
             ) # N
             Beta[:, k] = x_mu_norm + logdet + np.log(alphas[k]) # N
 
-        max_Beta = np.max(Beta, axis=1) # N
-        logsumexp = max_Beta + np.log( # N
-            np.sum( # N
-                np.exp(Beta - max_Beta[:, na]), # N, K
-                axis = 1
+        max_Beta = np.zeros(N)
+        logsumexp = np.zeros(N)
+        for i in range(N):
+            max_Beta[i] = np.max(Beta[i])
+            logsumexp[i] = max_Beta[i] + np.log(
+                np.sum(
+                    np.exp(Beta[i] - max_Beta[i]), # N, K
+                )
             )
-        )
 
         for k in range(K):
             gamma = np.exp(Beta[:, k] - logsumexp[:]) # N

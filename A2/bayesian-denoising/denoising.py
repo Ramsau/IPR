@@ -17,8 +17,6 @@ def expectation_maximization(
     mus = X[:K]
     sigmas = np.tile(np.eye(m)[None], (K, 1, 1))
 
-    utils.plot_gmm(X, alphas, mus, sigmas)
-
     for it in range(max_iter):
         print(it)
         # TODO: Implement (9) - (11)
@@ -118,7 +116,7 @@ def train(use_toy_data: bool = True, K: int = 2, w: int = 5):
 if __name__ == "__main__":
     do_training = True
     # Use the toy data to debug your EM implementation
-    use_toy_data = True
+    use_toy_data = False
     # Parameters for the GMM: Components and window size, m = w ** 2
     # Use K = 2 for toy/debug model
     K = 2
@@ -131,4 +129,4 @@ if __name__ == "__main__":
 
     # If you want to participate in the challenge, you can benchmark your model
     # Remember to upload the images in the submission.
-    benchmark(K, w)
+    # benchmark(K, w)

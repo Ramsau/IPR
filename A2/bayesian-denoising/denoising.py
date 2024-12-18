@@ -1,5 +1,6 @@
 import numpy as np
 import utils
+from numpy import newaxis as na
 
 
 def expectation_maximization(
@@ -21,39 +22,40 @@ def expectation_maximization(
         print(it)
         # TODO: Implement (9) - (11)
         L = np.linalg.cholesky(np.linalg.inv(sigmas)) #K, m, m
-        x_mu = X.reshape(N, 1, m) - mus.reshape(1, K, m) # N, K, m
+        x_mu = X[:, na, :] - mus[np.newaxis, :, :] # N, K, m
         slogdet = np.linalg.slogdet(L) # K
         logdet = slogdet.logabsdet * slogdet.sign # K
-        L_x_mu = L.reshape(1, K, m, m).transpose(0, 1, 3, 2) @ x_mu.reshape(N, K, m, 1) # N, K, m, m
+        L_x_mu = L[na, :, :].transpose(0, 1, 3, 2) @ x_mu[:, :, :, na] # N, K, m, m
         x_mu_norm = -0.5 * (
             np.linalg.norm(L_x_mu, ord=2, axis=(2, 3)) ** 2 + m * np.log(2 * np.pi)
         ) # N, K
-        Beta = x_mu_norm + logdet.reshape(1, K) + np.log(alphas).reshape(1, K) # N, K
+        Beta = x_mu_norm + logdet[na, :] + np.log(alphas)[na, :] # N, K
 
         max_Beta = np.max(Beta, axis=1) # N
         logsumexp = max_Beta + np.log( # N
             np.sum( # N
-                np.exp(Beta - max_Beta.reshape(N, 1)), # N, K
+                np.exp(Beta - max_Beta[:, na]), # N, K
                 axis = 1
             )
         )
 
-        gamma = np.exp(Beta - logsumexp.reshape(N, 1)) # N, K
+        gamma = np.exp(Beta - logsumexp[:, na]) # N, K
 
         gamma_sum = gamma.sum(0) # K
         alphas = gamma_sum / N # K
         mus = np.sum( # K, m
-            gamma.reshape(N, K, 1) * X.reshape(N, 1, m), # N, K, m
+            gamma[:, :, na] * X[:, na, :], # N, K, m
             0
-        ) / gamma_sum.reshape(K, 1)
-        x_mu_next = (X.reshape(N, 1, m) - mus.reshape(1, K, m)).reshape(N, K, m, 1) # N, K, m, 1
+        ) / gamma_sum[:, na]
+        x_mu_next = (X[:, na, :] - mus[na, :, :])[:, :, :, na] # N, K, m, 1
         x_mu_square =  x_mu_next @ x_mu_next.transpose(0, 1, 3, 2) # N, K, m, m
         sigma_tilde = np.sum( # K, m, m
-            gamma.reshape(N, K, 1, 1) * x_mu_square.transpose(0, 1, 3, 2), # N, K, m, m
+            gamma[:, :, na, na] * x_mu_square.transpose(0, 1, 3, 2), # N, K, m, m
             0
-        ) / gamma_sum.reshape(K, 1, 1)
-        sigmas = sigma_tilde + np.identity(m).reshape(1, m, m) * epsilon
+        ) / gamma_sum[:, na, na]
+        sigmas = sigma_tilde + np.identity(m)[na, :, :] * epsilon
 
+        del L, x_mu, slogdet, logdet, L_x_mu, x_mu_norm, Beta, max_Beta, logsumexp, gamma, gamma_sum, x_mu_next, x_mu_square, sigma_tilde
 
         if it % show_each == 0 and plot:
             utils.plot_gmm(X, alphas, mus, sigmas)

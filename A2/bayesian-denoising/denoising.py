@@ -1,11 +1,6 @@
 import numpy as np
 import utils
 
-def gaussian(x: np.ndarray, mu: np.ndarray, sigma: np.ndarray) -> np.ndarray:
-    xmu = x - mu
-    m = x.shape[1] ** 2
-    return np.exp(-1/2 * ((xmu @ np.linalg.inv(sigma)) * xmu).sum(1)) / \
-        np.sqrt(np.pow((2 * np.pi), m) * np.linalg.det(sigma))
 
 def expectation_maximization(
     X: np.ndarray,
@@ -31,9 +26,9 @@ def expectation_maximization(
         x_mu = X.reshape(N, 1, m) - mus.reshape(1, K, m) # N, K, m
         slogdet = np.linalg.slogdet(L) # K
         logdet = slogdet.logabsdet * slogdet.sign # K
-        L_x_mu = L.reshape(1, K, m, m) @ x_mu.reshape(N, K, m, 1) # N, K, m, m
+        L_x_mu = L.reshape(1, K, m, m).transpose(0, 1, 3, 2) @ x_mu.reshape(N, K, m, 1) # N, K, m, m
         x_mu_norm = -0.5 * (
-            np.linalg.norm(L_x_mu, ord=2, axis=(2, 3)) + m * np.log(2 * np.pi)
+            np.linalg.norm(L_x_mu, ord=2, axis=(2, 3)) ** 2 + m * np.log(2 * np.pi)
         ) # N, K
         Beta = x_mu_norm + logdet.reshape(1, K) + np.log(alphas).reshape(1, K) # N, K
 
@@ -53,10 +48,10 @@ def expectation_maximization(
             gamma.reshape(N, K, 1) * X.reshape(N, 1, m), # N, K, m
             0
         ) / gamma_sum.reshape(K, 1)
-        x_mu_next = (X.reshape(N, 1, m) - mus.reshape(1, K, m)).reshape(N, K, 1, m) # N, K, m, 1
-        x_mu_square =  x_mu_next.transpose(0, 1, 3, 2) @ x_mu_next # N, K, m, m
+        x_mu_next = (X.reshape(N, 1, m) - mus.reshape(1, K, m)).reshape(N, K, m, 1) # N, K, m, 1
+        x_mu_square =  x_mu_next @ x_mu_next.transpose(0, 1, 3, 2) # N, K, m, m
         sigma_tilde = np.sum( # K, m, m
-            gamma.reshape(N, K, 1, 1) * x_mu_square, # N, K, m, m
+            gamma.reshape(N, K, 1, 1) * x_mu_square.transpose(0, 1, 3, 2), # N, K, m, m
             0
         ) / gamma_sum.reshape(K, 1, 1)
         sigmas = sigma_tilde + np.identity(m).reshape(1, m, m) * epsilon
@@ -113,18 +108,6 @@ def benchmark(K: int = 10, w: int = 5):
 
 def train(use_toy_data: bool = True, K: int = 2, w: int = 5):
     data = np.load('./toy.npy') if use_toy_data else utils.train_data(w)
-    data = np.array([
-        [0, 0],
-        [1, 1],
-        [0 + 0.1, 0],
-        [1 + 0.1, 1],
-        [0 - 0.1, 0],
-        [1 - 0.1, 1],
-        [0, 0 + 0.1],
-        [1, 1 + 0.1],
-        [0, 0 - 0.1],
-        [1, 1 - 0.1],
-    ]) * 3
     # Plot only if we use toy data
     alphas, mus, sigmas = expectation_maximization(data, K=K, plot=use_toy_data)
     # Save only if we dont use toy data

@@ -92,15 +92,37 @@ def denoise(
     E = np.eye(m) - np.full((m, m), 1 / m)
 
     # TODO: Precompute A, b (26)
-    # sigma_inverse = np.linalg.inv(sigmas) # K, m, m
-    # A = np.linalg.inv(
-    #     (lamda * np.eye(m))[na, :, :] + E.T[na, :, :] @ sigma_inverse @ E[na, :, :]
-    # ) # K, m, m
-    # b = sigma_inverse @ E[na, :, :] @ mus[:, :, na]
+    sigma_inverse = np.linalg.inv(sigmas) # K, m, m
+    A = np.linalg.inv(
+        (lamda * np.eye(m))[na, :, :] + E.T[na, :, :] @ sigma_inverse @ E[na, :, :]
+    ) # K, m, m
+    b = (sigma_inverse @ E[na, :, :] @ mus[:, :, na]) # K, m
+    N = x_est.shape[0]
 
     for it in range(max_iter):
         # TODO: Implement Line 3, Line 4 of Algorithm 1
-        x_tilde = x_est
+        max_val = float('-inf')
+        Beta = np.zeros((N, K))
+        X = (E[na, :, :] @ x_est[:, :, na])[:, :, 0]
+        for k in range(K):
+            L = np.linalg.cholesky(np.linalg.inv(sigmas[k])) #m, m
+            x_mu = X[:, :] - mus[na, k, :] # N, m
+            slogdet = np.linalg.slogdet(L) # scalar
+            logdet = slogdet.logabsdet * slogdet.sign # scalar
+            L_x_mu = L.T[na, :, :] @ x_mu[:, :, na] # N, m, m
+            x_mu_norm = -0.5 * (
+                    np.linalg.norm(L_x_mu, ord=2, axis=(1, 2)) ** 2 + m * np.log(2 * np.pi)
+            ) # N
+            Beta[:, k] = x_mu_norm + logdet + np.log(alphas[k]) # N
+
+        max_Beta = np.zeros(N)
+        k_max = np.zeros(N, dtype=int)
+        for i in range(N):
+            max_Beta[i] = np.max(Beta[i])
+            k_max[i] = np.argmax(Beta[i])
+
+
+        x_tilde = (A[k_max] @ (lamda * y[:, :, na] + b[k_max])).squeeze()
         x_est = alpha * x_est + (1 - alpha) * x_tilde
 
         if not test:
@@ -125,7 +147,7 @@ def train(use_toy_data: bool = True, K: int = 2, w: int = 5):
 
 
 if __name__ == "__main__":
-    do_training = True
+    do_training = False
     # Use the toy data to debug your EM implementation
     use_toy_data = False
     # Parameters for the GMM: Components and window size, m = w ** 2
@@ -136,7 +158,9 @@ if __name__ == "__main__":
         train(use_toy_data, K, w)
     else:
         for i in range(1, 6):
-            denoise(i, K, w, test=False)
+            # denoise(i, K, w, test=False)
+            pass
+    benchmark(K, w)
 
     # If you want to participate in the challenge, you can benchmark your model
     # Remember to upload the images in the submission.

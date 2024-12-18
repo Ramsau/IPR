@@ -21,15 +21,17 @@ def expectation_maximization(
     for it in range(max_iter):
         print(it)
         # TODO: Implement (9) - (11)
-        L = np.linalg.cholesky(np.linalg.inv(sigmas)) #K, m, m
-        x_mu = X[:, na, :] - mus[np.newaxis, :, :] # N, K, m
-        slogdet = np.linalg.slogdet(L) # K
-        logdet = slogdet.logabsdet * slogdet.sign # K
-        L_x_mu = L[na, :, :].transpose(0, 1, 3, 2) @ x_mu[:, :, :, na] # N, K, m, m
-        x_mu_norm = -0.5 * (
-            np.linalg.norm(L_x_mu, ord=2, axis=(2, 3)) ** 2 + m * np.log(2 * np.pi)
-        ) # N, K
-        Beta = x_mu_norm + logdet[na, :] + np.log(alphas)[na, :] # N, K
+        Beta = np.zeros((N, K))
+        for k in range(K):
+            L = np.linalg.cholesky(np.linalg.inv(sigmas[k])) #m, m
+            x_mu = X[:, :] - mus[na, k, :] # N, m
+            slogdet = np.linalg.slogdet(L) # scalar
+            logdet = slogdet.logabsdet * slogdet.sign # scalar
+            L_x_mu = L.T[na, :, :] @ x_mu[:, :, na] # N, m, m
+            x_mu_norm = -0.5 * (
+                np.linalg.norm(L_x_mu, ord=2, axis=(1, 2)) ** 2 + m * np.log(2 * np.pi)
+            ) # N
+            Beta[:, k] = x_mu_norm + logdet + np.log(alphas[k]) # N
 
         max_Beta = np.max(Beta, axis=1) # N
         logsumexp = max_Beta + np.log( # N
@@ -39,21 +41,21 @@ def expectation_maximization(
             )
         )
 
-        gamma = np.exp(Beta - logsumexp[:, na]) # N, K
-
-        gamma_sum = gamma.sum(0) # K
-        alphas = gamma_sum / N # K
-        mus = np.sum( # K, m
-            gamma[:, :, na] * X[:, na, :], # N, K, m
-            0
-        ) / gamma_sum[:, na]
-        x_mu_next = (X[:, na, :] - mus[na, :, :])[:, :, :, na] # N, K, m, 1
-        x_mu_square =  x_mu_next @ x_mu_next.transpose(0, 1, 3, 2) # N, K, m, m
-        sigma_tilde = np.sum( # K, m, m
-            gamma[:, :, na, na] * x_mu_square.transpose(0, 1, 3, 2), # N, K, m, m
-            0
-        ) / gamma_sum[:, na, na]
-        sigmas = sigma_tilde + np.identity(m)[na, :, :] * epsilon
+        for k in range(K):
+            gamma = np.exp(Beta[:, k] - logsumexp[:]) # N
+            gamma_sum = gamma.sum(0)
+            alphas[k] = gamma_sum / N
+            mus[k] = np.sum( # m
+                gamma[:, na] * X[:, :], # N, m
+                0
+            ) / gamma_sum
+            x_mu_next = (X[:, :] - mus[na, k, :])[:, :, na] # N, m, 1
+            x_mu_square =  x_mu_next @ x_mu_next.transpose(0, 2, 1) # N, m, m
+            sigma_tilde = np.sum( # m, m
+                gamma[:, na, na] * x_mu_square.transpose(0, 2, 1), # N, m, m
+                0
+            ) / gamma_sum
+            sigmas[k] = sigma_tilde + np.identity(m) * epsilon
 
         del L, x_mu, slogdet, logdet, L_x_mu, x_mu_norm, Beta, max_Beta, logsumexp, gamma, gamma_sum, x_mu_next, x_mu_square, sigma_tilde
 
@@ -88,6 +90,11 @@ def denoise(
     E = np.eye(m) - np.full((m, m), 1 / m)
 
     # TODO: Precompute A, b (26)
+    # sigma_inverse = np.linalg.inv(sigmas) # K, m, m
+    # A = np.linalg.inv(
+    #     (lamda * np.eye(m))[na, :, :] + E.T[na, :, :] @ sigma_inverse @ E[na, :, :]
+    # ) # K, m, m
+    # b = sigma_inverse @ E[na, :, :] @ mus[:, :, na]
 
     for it in range(max_iter):
         # TODO: Implement Line 3, Line 4 of Algorithm 1

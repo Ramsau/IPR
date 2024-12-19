@@ -122,7 +122,7 @@ def denoise(
             k_max[i] = np.argmax(Beta[i])
 
 
-        x_tilde = (A[k_max] @ (lamda * y[:, :, na] + b[k_max])).squeeze()
+        x_tilde = (A[k_max] @ (lamda * y[:, :, na] + b[k_max]))[:, :, 0]
         x_est = alpha * x_est + (1 - alpha) * x_tilde
 
         if not test:

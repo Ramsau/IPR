@@ -1,15 +1,16 @@
 import matplotlib.pyplot as plt
-import imageio.v2 as imageio
+import imageio
 import torch as th
 
 # It is highly recommended to set up pytorch to take advantage of CUDA GPUs!
 device = th.device('cuda') if th.cuda.is_available() else th.device('cpu')
 
 # Choose the size of the image here. Prototyping is easier with 128.
-M = 128
+M = 256
 # The reference implementation works in chunks. Set this as high as possible
 # while fitting the intermediary calculations in memory.
-simul = M ** 2 // 1
+#simul = M ** 2 // 1 # for 128. if that does not work increasing the 1 will work but will be slower
+simul = M ** 2 // 10 # for 256. change the 5 to a lower number if you have the resources (CPU+RAM/VRAM+GPU)
 
 im = th.from_numpy(imageio.imread(f'./{M}.png') / 255.).to(device)
 
@@ -18,16 +19,17 @@ _, ax = plt.subplots(1, 2)
 ax[0].imshow(im.cpu().numpy())
 artist = ax[1].imshow(im.cpu().numpy())
 
+# default values
 # zeta_values = [1, 4]
 # h_values = [0.1, 0.3]
 
 # # best values for Distinguish 2 classes: Sky and non-sky.
-# zeta_values = [0.4]
+# zeta_values = [0.6]
 # h_values = [0.5]
 
 # best values for Distinguish 8 classes: Sky, the six clearly visible houses, and the pavement.
-zeta_values = [1]
-h_values = [0.4]
+zeta_values = [1, 2]
+h_values = [0.3]
 
 for zeta in zeta_values:
     y, x = th.meshgrid(
@@ -66,8 +68,7 @@ for zeta in zeta_values:
             to_do = th.cat((to_do, chunk_indices[~cond]))
 
             artist.set_data(shifted.view(M, M, 5).cpu()[:, :, :3])
-            # plt.show()
-            plt.pause(0.01)
+            # plt.pause(0.01) # use if one want to see the image change "instantly"
             print(f"Zeta={zeta}, h={h}: {len(to_do)} Pixels left.")
         # Reference images were saved using this code.
         print(f"--Saving zeta={zeta}, h={h}--")

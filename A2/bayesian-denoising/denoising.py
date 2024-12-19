@@ -129,10 +129,10 @@ def denoise(
             u = utils.patches_to_image(x_est, x.shape, w)
             print(f"it: {it+1:03d}, psnr(u, y)={utils.psnr(u, x):.2f}")
 
-    noised = utils.patches_to_image(y, x.shape, w)
-    denoised = utils.patches_to_image(x_est, x.shape, w)
-    utils.imsave(f'./validation/img{index}_K-{K}_w-{w}_sigma-{sigma:.2f}_noised.png', noised)
-    utils.imsave(f'./validation/img{index}_K-{K}_w-{w}_sigma-{sigma:.2f}_denoised.png', denoised)
+    # noised = utils.patches_to_image(y, x.shape, w)
+    # denoised = utils.patches_to_image(x_est, x.shape, w)
+    # utils.imsave(f'./validation/img{index}_K-{K}_w-{w}_sigma-{sigma:.2f}_noised.png', noised)
+    # utils.imsave(f'./validation/img{index}_K-{K}_w-{w}_sigma-{sigma:.2f}_denoised.png', denoised)
     return utils.patches_to_image(x_est, x.shape, w)
 
 
@@ -156,18 +156,15 @@ if __name__ == "__main__":
     use_toy_data = False
     # Parameters for the GMM: Components and window size, m = w ** 2
     # Use K = 2 for toy/debug model
-    K = 5
+    K = 10
     w = 5
-    for i in range(1, 6):
-        denoise(i, K, w, test=False)
     # if do_training:
     #     train(use_toy_data, K, w)
     # else:
     #     for i in range(1, 6):
     #         denoise(i, K, w, test=False)
     #         pass
-    # benchmark(K, w)
 
     # If you want to participate in the challenge, you can benchmark your model
     # Remember to upload the images in the submission.
-    # benchmark(K, w)
+    benchmark(K, w)

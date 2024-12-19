@@ -18,14 +18,25 @@ _, ax = plt.subplots(1, 2)
 ax[0].imshow(im.cpu().numpy())
 artist = ax[1].imshow(im.cpu().numpy())
 
-for zeta in [1, 4]:
+# zeta_values = [1, 4]
+# h_values = [0.1, 0.3]
+
+# # best values for Distinguish 2 classes: Sky and non-sky.
+# zeta_values = [0.4]
+# h_values = [0.5]
+
+# best values for Distinguish 8 classes: Sky, the six clearly visible houses, and the pavement.
+zeta_values = [1]
+h_values = [0.4]
+
+for zeta in zeta_values:
     y, x = th.meshgrid(
         th.linspace(-zeta, zeta, M, device=device),
         th.linspace(-zeta, zeta, M, device=device),
         indexing='xy'
     )
     features = th.cat((im, y[..., None], x[..., None]), dim=-1).reshape(-1, 5)
-    for h in [0.1, 0.3]:
+    for h in h_values:
         # The `shifted` array contains the iteration variables
         shifted = features.clone()
         # The `to_do` array contains the indices of the pixels for which the
@@ -50,8 +61,8 @@ for zeta in [1, 4]:
             cond = th.norm(shifted[chunk_indices] - chunk, dim=1)**2 < 1e-6
             # We only keep the points for which the stopping criterion is not met.
             # `cond` should be a boolean array of length `simul` that indicates
-            # which points should be kept.
-            to_do = to_do[chunk_size:]  # Remaining indices after the current chunk
+            # which points should not be kept.
+            to_do = to_do[chunk_size:]
             to_do = th.cat((to_do, chunk_indices[~cond]))
 
             artist.set_data(shifted.view(M, M, 5).cpu()[:, :, :3])
@@ -64,3 +75,5 @@ for zeta in [1, 4]:
             f'./implementation/{M}/zeta_{zeta:1.1f}_h_{h:.2f}.png',
             (shifted.reshape(M, M, 5)[..., :3].clone().cpu().numpy()*255).astype("uint8")
         )
+
+

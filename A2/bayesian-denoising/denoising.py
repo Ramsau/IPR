@@ -152,15 +152,15 @@ if __name__ == "__main__":
     use_toy_data = False
     # Parameters for the GMM: Components and window size, m = w ** 2
     # Use K = 2 for toy/debug model
-    K = 3
-    w = 3
+    K = 10
+    w = 5
     if do_training:
         train(use_toy_data, K, w)
     else:
         for i in range(1, 6):
-            # denoise(i, K, w, test=False)
+            denoise(i, K, w, test=False)
             pass
-    benchmark(K, w)
+    # benchmark(K, w)
 
     # If you want to participate in the challenge, you can benchmark your model
     # Remember to upload the images in the submission.

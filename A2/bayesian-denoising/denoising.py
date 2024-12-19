@@ -81,7 +81,7 @@ def denoise(
     precs_chol = np.linalg.cholesky(precs)  # "L" in the assignment sheet
     if test:
         # This is really two times `y` since we dont have access to `x` here
-        x, y = utils.test_data(index)
+        x, y = utils.test_data(index, w=w)
     else:
         x, y = utils.validation_data(index, sigma=sigma, seed=1, w=w)
     # x is image-shaped, y is patch-shaped

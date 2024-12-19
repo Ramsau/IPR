@@ -152,8 +152,8 @@ if __name__ == "__main__":
     use_toy_data = False
     # Parameters for the GMM: Components and window size, m = w ** 2
     # Use K = 2 for toy/debug model
-    K = 10
-    w = 5
+    K = 3
+    w = 3
     if do_training:
         train(use_toy_data, K, w)
     else:

@@ -26,9 +26,9 @@ def diffusion_tensor(
     u_tilde_y = scipy.signal.convolve2d(u_tilde, np.array([[-1], [0], [1]]), mode="same")
 
     # m, n
-    S_xx = gaussian_filter(u_tilde_x * u_tilde_x, sigma_g)
-    S_yy = gaussian_filter(u_tilde_y * u_tilde_y, sigma_g)
-    S_xy = gaussian_filter(u_tilde_x * u_tilde_y, sigma_g)
+    S_xx = gaussian_filter(u_tilde_x * u_tilde_x, sigma_g, axes=(0, 1))
+    S_yy = gaussian_filter(u_tilde_y * u_tilde_y, sigma_g, axes=(0, 1))
+    S_xy = gaussian_filter(u_tilde_x * u_tilde_y, sigma_g, axes=(0, 1))
 
     # m, n, 2, 2
     S = np.array([
@@ -48,11 +48,11 @@ def diffusion_tensor(
     v_2 = eig_vectors[np.arange(eig_vectors.shape[0]), idx[:, 0]]
 
     if mode == 'ced':
-        g = np.exp(np.pow(mu_1 - mu_2, 2) / (-2 * np.pow(gamma, 2)))
+        g = np.exp(-np.pow(mu_1 - mu_2, 2) / (2 * np.pow(gamma, 2)))
         lambda_1 = alpha
         lambda_2 = alpha + (1 - alpha) * (1 - g)
     elif mode == 'eed':
-        lambda_1 = np.sqrt(1 + mu_1 / np.pow(gamma, 2)) # gamma=delta according to code template
+        lambda_1 = np.pow(1 + mu_1 / np.pow(gamma, 2), -0.5) # gamma=delta according to code template
         lambda_2 = 1
     else:
         raise Exception("Unknown mode")
@@ -62,7 +62,17 @@ def diffusion_tensor(
     D_3 = lambda_1 * v_1[:, 0] * v_1[:, 1] + lambda_2 * v_2[:, 0] * v_2[:, 1]
 
     # ok, but i can't create np.diag(D_1) - that would be 1.68 TiB...
-    return sp.eye(2 * u.size)
+    D_U_1 = scipy.sparse.diags(D_1 * u.ravel())
+    D_U_2 = scipy.sparse.diags(D_2 * u.ravel())
+    D_U_3 = scipy.sparse.diags(D_3 * u.ravel())
+
+    D_U = scipy.sparse.vstack([
+        scipy.sparse.hstack([D_U_1, D_U_3]),
+        scipy.sparse.hstack([D_U_3, D_U_2]),
+    ])
+
+
+    return D_U
 
 
 def nonlinear_anisotropic_diffusion(

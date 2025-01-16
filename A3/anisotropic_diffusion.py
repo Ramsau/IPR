@@ -5,7 +5,6 @@ import numpy as np
 import scipy.sparse as sp
 from scipy.ndimage import gaussian_filter
 from scipy.sparse.linalg import spsolve
-import scipy
 
 
 def diffusion_tensor(

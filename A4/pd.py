@@ -42,25 +42,30 @@ if __name__ == '__main__':
 
     imnames = [f'img{i}' for i in range(1, 5)]
     for name in imnames:
-        g = imageio.imread(name + '.png') / 255.
+        g = imageio.imread('./test/' + name + '.png') / 255.
 
         def prox_tG(u: np.ndarray) -> np.ndarray:
             '''
             Todo: Implement (16)
             '''
-            return u
+            return (u + tau * lamda * g.ravel()) / (1 + tau * lamda)
 
         def prox_sFs(p: np.ndarray) -> np.ndarray:
             '''
             Todo: Implement (17)
             '''
-            return p
+            p_reshaped = p.reshape(2, -1)
+            norms = np.linalg.norm(p_reshaped, axis=0)
+            scale = np.maximum(1, norms)
+            p_reshaped /= scale
+            return p_reshaped.ravel()
+
 
         denoised = pdhg(
             g.ravel(), nabla, tau, prox_tG, sigma, prox_sFs, max_iter
         ).reshape(g.shape)
         # Code with which the reference images were written to disk
         imageio.imsave(
-            f'./reference_output/{name}_ref_{lamda=}.png',
+            f'./output/{name}_ref_{lamda=}.png',
             (denoised.reshape(g.shape) * 255.).astype(np.uint8)
         )
